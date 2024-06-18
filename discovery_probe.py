@@ -72,7 +72,7 @@ box_config=box.config\n\
 responses_dir_path=rsps/" + responses_storage_name + "\n\
 mkdir -p $responses_dir_path\n\
 set -o pipefail &&\n\
-/usr/local/sbin/zmap \\\n\
+/opt/homebrew/sbin/zmap \\\n\
 --config=$box_config \\\n\
 --target-port=" + str(proto_profile.port) + " \\\n\
 --source-port=" + str(sending_port) + " \\\n\
@@ -85,6 +85,7 @@ set -o pipefail &&\n\
 --seed=85 \\\n\
 --probes=1 \\\n\
 --probe-module=udp \\\n\
+--source-mac=02:54:55:00:00:01 \\\n\
 --probe-args=" + proto_profile.attack_name_to_format[attack_name] + ":" + proto_profile.attack_name_to_pkt[attack_name] + " \\\n\
 --output-module=csv \\\n\
 --output-fields=\"saddr,data\" \\\n\
@@ -149,3 +150,65 @@ if DEBUG: logging.debug("FINISHED: close database cursor and connection.\n")
 print("Probe responses were stored using Postgresql.")
 print("\tdatabase name: " + db_name) 
 print("\ttable name: " + responses_storage_name)
+
+
+# Step 1
+
+# python3 discovery_probe.py dns -1
+
+# Probe responses were stored using Postgresql.
+#         database name: loop_scan
+#         table name: dns_rsps_2398_probed_1716038277
+
+# postgres=# CREATE DATABASE dns_cluster_discovery;
+#
+# STEP 2
+# $ python3 dns_clustering.py dns_rsps_2398_probed_1716038277 dns_cluster_discovery dns_mapping_dict.pkl
+
+# STEP 3
+
+# 3.1
+# python3 sample_loop_probe_payloads.py <proto> <discovery_table> <cluster_table> <responder_amount>
+# python3 sample_loop_probe_payloads.py dns dns_rsps_2398_probed_1716038277 dns_cluster_discovery 1
+
+# 3.2
+# python3 loop_probe.py <proto1> <proto2> <num_ips_to_probe>
+# python3 loop_probe.py dns dns -1
+#  <proto1>_target_<proto2>_pkts_rsps_<num_probes>_probed_<timestamp>
+#  e.g., ntp_target_ntp_pkts_rsps_10000_probed_1609562355
+# Result
+# table name: dns_target_dns_pkts__rsps__2398_probed_1716039126
+
+
+# 3.3
+# python3 dns/ntp/tftp_clustering.py <scan_table> <cluster_table> <type_summary_id_mapping_dict>
+#  <scan_table> : the table generated in loop probe (Step 3.2).
+#  <cluster_table> : the table to save clustering result. => dns_cluster_results
+#  <type_summary_id_mapping_dict> : please use the same <type_summary_id_mapping_dict> as the one used in STEP 2, so for known cluster types, you won't get a new cluster id.
+# => dns_mapping_dict.pkl
+
+# 3.4
+# python3 cluster_verify.py <loop_probe_scan_result_table> <sampled_payloads_file>
+
+#  <loop_probe_scan_result_table> : the table from Step 3.2
+#  e.g., ntp_target_ntp_pkts_rsps_10000_probed_1609562355
+#  <sampled_payloads_file> : the file containing sampled payloads, from Step 3.1 => dns_payload_filtered_servers.pkl
+
+# STEP 4
+# python3 draw_directed_graph.py <loop_probe_result_table> <loop_probe_cluster_result> <cycle_result_output>
+
+# <loop_probe_result_table>: the table from Step 3.2
+ # <loop_probe_cluster_result>: the cluster table from Step 3.3 => dns_cluster_results
+ # <cycle_result_output> : the file containing identified cycles and vulnerable hosts. => dns_cycle_results
+
+# STEP 5
+
+# python3 proxy.py <local_ip> <loop_probe_table_name> <sampled_payloads_file> <cycle_result_output> <start_port> <target_port> to verify identified loops.
+
+# <local_ip> : the IP used by the proxy verifier
+# <loop_probe_table_name> : the table from Step 3.2
+# <sampled_payloads_file> : the file containing sampled payload from Step 3.1
+#  <cycle_result_output> : the file containing identified cycles from Step 4
+# <start_port> : the proxy server use one port per sampled loop pair, this value definies the first port to be used.
+#  e.g., 10000
+#  <target_port> : use 53, 123, 69 for DNS, NTP, and TFTP respectively.

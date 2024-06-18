@@ -75,7 +75,7 @@ box_config=box.config\n\
 responses_dir_path=rsps/" + responses_storage_name + "\n\
 mkdir -p $responses_dir_path\n\
 set -o pipefail &&\n\
-/usr/local/sbin/zmap \\\n\
+/opt/homebrew/sbin/zmap \\\n\
 --config=$box_config \\\n\
 --target-port=" + str(target_port) + " \\\n\
 --source-port=" + str(sending_port) + " \\\n\
@@ -88,6 +88,7 @@ set -o pipefail &&\n\
 --seed=85 \\\n\
 --probes=1 \\\n\
 --probe-module=udp \\\n\
+--source-mac=02:54:55:00:00:01 \\\n\
 --probe-args=hex:" + attack_pkt.strip() + " \\\n\
 --output-module=csv \\\n\
 --output-fields=\"saddr,data\" \\\n\
@@ -146,3 +147,34 @@ if DEBUG: logging.debug("FINISHED: close database cursor and connection.\n")
 print("Probe responses were stored using Postgresql.")
 print("\tdatabase name: " + db_name) 
 print("\ttable name: " + responses_storage_name)
+
+# output
+#
+# database
+# name: loop_scan
+# table name: dns_target_dns_pkts__rsps__2398_probed_1716037185
+# Step 3.3
+# run python3 dns/ntp/tftp_clustering.py <scan_table> <cluster_table> <type_summary_id_mapping_dict>
+# python3 dns_clustering.py dns_target_dns_pkts__rsps__2398_probed_1716037185 dns_cluster_discovery dns_mapping_dict.pkl
+
+
+# Step 3.4
+# python3 cluster_verify.py <loop_probe_scan_result_table> <sampled_payloads_file>
+# python3 cluster_verify.py dns_target_dns_pkts__rsps__2398_probed_1716037185 dns_payload_filtered_servers.pkl
+
+
+# Step 4
+
+# python3 draw_directed_graph.py <loop_probe_result_table> <loop_probe_cluster_result> <cycle_result_output>
+# python3 draw_directed_graph.py dns_target_dns_pkts__rsps__2398_probed_1716037185 dns_cluster_discovery dns_cycle_result_output.json
+
+
+
+
+
+
+
+
+
+
+
